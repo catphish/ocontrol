@@ -3,8 +3,13 @@
 
 #define nop()  __asm__ __volatile__ ("nop" ::)
 
+void serial_write_char(unsigned char c) {
+  while(!(USART2->ISR & (1<<7)));
+  USART2->TDR = c;
+}
+
 void wait_a_bit() {
-  for(int n=0; n<100000; n++) nop();
+  for(int n=0; n<50000; n++) nop();
 }
 
 void ss_low() {
@@ -30,37 +35,108 @@ unsigned char spi_tx(unsigned char tx) {
   return(SPI1->DR);
 }
 
+unsigned char read_response(unsigned char* buffer) {
+  // Read flags
+  //wait_a_bit();
+  ss_low();
+  while(!(spi_tx(3) & 8));
+  ss_high();
+
+  //wait_a_bit();
+
+  //Read data
+  ss_low();
+  spi_tx(2);
+  unsigned char response = spi_tx(0);
+  buffer[0] = spi_tx(0);
+  for(int n=1; n<=buffer[0];n++)
+    buffer[n] = spi_tx(0);
+  ss_high();
+
+  return response;
+}
+
 int main() {
+  unsigned char buffer[256];
+
+  // Try to wake the ST95HF
+  irq_pulse();
+
+  // Set mode
+  //wait_a_bit();
+  ss_low();
+  spi_tx(0);
+  spi_tx(2);
+  spi_tx(2);
+  spi_tx(2);
+  spi_tx(0);
+  ss_high();
+  read_response(buffer);
+
+  // Set params
+  //wait_a_bit();
+  ss_low();
+  spi_tx(0);
+  spi_tx(9);
+  spi_tx(4);
+  spi_tx(0x3a);
+  spi_tx(0);
+  spi_tx(0x58);
+  spi_tx(4);
+  ss_high();
+  read_response(buffer);
+
+  //wait_a_bit();
+  ss_low();
+  spi_tx(0);
+  spi_tx(9);
+  spi_tx(4);
+  spi_tx(0x68);
+  spi_tx(1);
+  spi_tx(1);
+  spi_tx(0xd1);
+  ss_high();
+  read_response(buffer);
+
   while(1) {
-    // Try to wake the ST95HF
-    irq_pulse();
-
-    // Request hardware info
+    //wait_a_bit();
     ss_low();
-    wait_a_bit();
     spi_tx(0);
-    spi_tx(1);
-    spi_tx(0);
-    wait_a_bit();
+    spi_tx(4);
+    spi_tx(2);
+    spi_tx(0x26);
+    spi_tx(0x07);
     ss_high();
+    unsigned char response = read_response(buffer);
+ 
+    if(response == 0x80 && buffer[0] == 5 && buffer[1] == 0x44 && buffer[2] == 0) {
+      //wait_a_bit();
+      ss_low();
+      spi_tx(0);
+      spi_tx(4);
+      spi_tx(3);
+      spi_tx(0x30);
+      spi_tx(0x0);
+      spi_tx(0x28);
+      ss_high();
+      unsigned char response = read_response(buffer);
+   
+      serial_write_char(buffer[1]);
+      serial_write_char(buffer[2]);
+      serial_write_char(buffer[3]);
+      serial_write_char(buffer[5]);
+      serial_write_char(buffer[6]);
+      serial_write_char(buffer[7]);
+      serial_write_char(buffer[8]);
+      serial_write_char(0xff);
+      if(response == 0x80 && buffer[0] == 0x15) {
+        GPIOB->ODR = 0b100000; // Blink an LED
+        //TIM21->CCER = 1; // CC1E
 
-    wait_a_bit();
-
-    // Read flags
-    ss_low();
-    wait_a_bit();
-    USART2->TDR = GPIOA->IDR; // This shows the MISO IRQ line remains high
-    USART2->TDR = spi_tx(3); // Always 0
-    USART2->TDR = spi_tx(3); // Always 0
-    USART2->TDR = spi_tx(3); // Always 0
-    ss_high();
-
-    GPIOB->ODR = 0b100000; // Blink an LED
-    wait_a_bit();
-
-    USART2->TDR = '\n'; // Seems to help with buffering
-
-    GPIOB->ODR = 0b000000; // Blink an LED
-    wait_a_bit();
+        wait_a_bit();
+        GPIOB->ODR = 0b000000; // Blink an LED
+        TIM21->CCER = 0; // CC1E
+      }
+    }
   }
 }
