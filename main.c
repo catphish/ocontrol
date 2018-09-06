@@ -129,13 +129,14 @@ int main() {
       serial_write_char(buffer[7]);
       serial_write_char(buffer[8]);
       serial_write_char(0xff);
+
       if(response == 0x80 && buffer[0] == 0x15) {
         GPIOB->ODR = 0b100000; // Blink an LED
-        //TIM21->CCER = 1; // CC1E
-
+        TIM21->CCER = 1; // CC1E
         wait_a_bit();
         GPIOB->ODR = 0b000000; // Blink an LED
         TIM21->CCER = 0; // CC1E
+        wait_a_bit();
       }
     }
   }

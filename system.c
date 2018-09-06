@@ -30,7 +30,7 @@ void SystemInit() {
   GPIOB->AFR[0] = (5<<24); // AF5 for timer output on B6
 
   // SPI
-  SPI1->CR1 = SPI_CR1_SSM | SPI_CR1_SSI | SPI_CR1_MSTR | (7<<3); // Baud rate 2MHz/256
+  SPI1->CR1 = SPI_CR1_SSM | SPI_CR1_SSI | SPI_CR1_MSTR | (1<<3); // Baud rate 2MHz/2
   SPI1->CR1 |= SPI_CR1_SPE;
 
   // Serial
