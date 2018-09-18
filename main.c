@@ -13,18 +13,18 @@ void wait_a_bit() {
 }
 
 void ss_low() {
-  GPIOA->BRR = (1<<4); // A4 low
+  GPIOB->BRR = (1<<0); // B0 low
 }
 
 void ss_high() {
-  GPIOA->BSRR = (1<<4);  // A4 high
+  GPIOB->BSRR = (1<<0);  // B0 high
 }
 
 void irq_pulse(){
   wait_a_bit();
-  GPIOA->BRR = (1<<3); // A3 low
+  GPIOA->BRR = (1<<4); // A4 low
   wait_a_bit();
-  GPIOA->BSRR = (1<<3);  // A3 high
+  GPIOA->BSRR = (1<<4);  // A4 high
   wait_a_bit();
 }
 
@@ -57,6 +57,16 @@ unsigned char read_response(unsigned char* buffer) {
 }
 
 int main() {
+  GPIOA->BRR = (1<<1); // A1 low, GPS on
+int n=0;
+  while(1) {
+    while(!(LPUART1->ISR & (1<<5)));
+    while(!(USART2->ISR & (1<<7)));
+    USART2->TDR = LPUART1->RDR;
+    n++;
+    if(n>1000) GPIOA->BSRR = (1<<1); // A1 high, GPS off
+  }
+
   unsigned char buffer[256];
 
   // Try to wake the ST95HF
@@ -132,12 +142,13 @@ int main() {
 
       if(response == 0x80 && buffer[0] == 0x15) {
         GPIOB->ODR = 0b100000; // Blink an LED
-        TIM21->CCER = 1; // CC1E
+        //TIM21->CCER = 1; // CC1E
         wait_a_bit();
         GPIOB->ODR = 0b000000; // Blink an LED
-        TIM21->CCER = 0; // CC1E
+        //TIM21->CCER = 0; // CC1E
         wait_a_bit();
       }
     }
   }
+
 }
