@@ -1,0 +1,1 @@
+void st95hf_init();

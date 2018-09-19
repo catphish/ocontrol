@@ -1,0 +1,1 @@
+void beeper_init();
