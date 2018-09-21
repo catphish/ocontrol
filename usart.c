@@ -2,7 +2,6 @@
 #include <stm32l031xx.h>
 
 void usart_init() {
-  RCC->APB1ENR |= (1<<18); // Enable LPUART1
   set_port_af(GPIOA, 9, 4);  // AF4 for usart
   set_port_af(GPIOA, 10, 4); // AF4 for usart
   set_port_mode(GPIOA, 10, PORT_MODE_AF); // USART2

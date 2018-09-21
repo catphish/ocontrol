@@ -12,19 +12,30 @@ void SystemInitError(uint8_t error_source) {
 }
 
 void SystemInit() {
-  // Power everything up
+  // Power everything up, configure clocks, general pre-initialization
   RCC->APB1ENR |= (1<<28); // Enable access to power registers
   PWR->CR      |= (1<<8);  // Enable access to RTC registers
-  // RTC->WPR      = 0xCA;
-  // RTC->WPR      = 0x53;
+  RTC->WPR      = 0xCA;    // I think this is also needed
+  RTC->WPR      = 0x53;    // I think this is also needed
   RCC->IOPENR  |= 3;       // Enable PORT A+B
+  RCC->APB1ENR |= (1<<17); // Enable USART2
+  RCC->APB1ENR |= (1<<18); // Enable LPUART1
   RCC->APB2ENR |= (1<<12); // Enable SPI1
   RCC->APB2ENR |= (1<<2);  // Enable TIM21
   RCC->CSR     |= (1<<8);  // LSE ON
+  RCC->CSR     |= (1<<18); // RTC ON
+  RCC->CSR     |= (1<<16); // RTC using LSE
   RCC->CCIPR   |= (3<<10); // LSE for LPUART
-
-  // Wait for everything to wake up
   usleep(1000);
+}
+
+int main() {
+
+  // Zero the RTC, mostly just for testing
+  RTC->ISR |= (1<<7);
+  while(!(RTC->ISR & (1<<6)));
+  RTC->TR = 0;
+  RTC->ISR &= ~(1<<7);
 
   // Configure all peripherals
   beeper_init();
@@ -33,22 +44,29 @@ void SystemInit() {
   st95hf_init();
   usart_init();
 
-}
+  gps_on();
 
-int main() {
-  // while(1) {
-  //   usleep(500000);
-  //   GPIOB->BSRR = (1<<5); // LED on
-  //   usleep(500000);
-  //   GPIOB->BRR = (1<<5);  // LED off
-  // }
-
-  GPIOA->BRR = (1<<1); // A1 low, GPS on
   while(1) {
-    while(!(LPUART1->ISR & (1<<5)));
-    while(!(USART2->ISR & (1<<7)));
-    USART2->TDR = LPUART1->RDR;
+    usleep(500000);
+    GPIOB->BSRR = (1<<5); // LED on
+    usleep(500000);
+    GPIOB->BRR = (1<<5);  // LED off
+    usart_write_char('0' + ((RTC->TR & (0x3<<20)) >> 20));
+    usart_write_char('0' + ((RTC->TR & (0xf<<16)) >> 16));
+    usart_write_char(':');
+    usart_write_char('0' + ((RTC->TR & (0x7<<12)) >> 12));
+    usart_write_char('0' + ((RTC->TR & (0xf<<8 )) >> 8 ));
+    usart_write_char(':');
+    usart_write_char('0' + ((RTC->TR & (0x7<<4 )) >> 4 ));
+    usart_write_char('0' + ((RTC->TR & (0xf<<0 )) >> 0 ));
+    usart_write_char('\n');
   }
+
+  // while(1) {
+  //   while(!(LPUART1->ISR & (1<<5)));
+  //   while(!(USART2->ISR & (1<<7)));
+  //   USART2->TDR = LPUART1->RDR;
+  // }
 
   // unsigned char buffer[256];
 

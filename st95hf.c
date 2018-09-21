@@ -40,7 +40,7 @@ unsigned char spi_tx(unsigned char tx) {
 unsigned char read_response(unsigned char* buffer) {
   // Wait for interrupt line
   while(GPIOA->IDR & (1<<2));
-  // Read data
+  //  Read data
   ss_low();
   spi_tx(2);
   unsigned char response = spi_tx(0);
