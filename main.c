@@ -30,12 +30,13 @@ void SystemInit() {
 }
 
 int main() {
+  unsigned char buffer[256];
 
-  // Zero the RTC, mostly just for testing
-  RTC->ISR |= (1<<7);
-  while(!(RTC->ISR & (1<<6)));
-  RTC->TR = 0;
-  RTC->ISR &= ~(1<<7);
+  // Zero the RTC
+  // RTC->ISR |= (1<<7);
+  // while(!(RTC->ISR & (1<<6)));
+  // RTC->TR = 0;
+  // RTC->ISR &= ~(1<<7);
 
   // Configure all peripherals
   beeper_init();
@@ -46,110 +47,87 @@ int main() {
 
   gps_on();
 
+  wakeup_pulse();
+  usleep(100000);
+
+  // Set mode
+  //wait_a_bit();
+  ss_low();
+  spi_tx(0);
+  spi_tx(2);
+  spi_tx(2);
+  spi_tx(2);
+  spi_tx(0);
+  ss_high();
+  read_response(buffer);
+
+  // Set params
+  //wait_a_bit();
+  ss_low();
+  spi_tx(0);
+  spi_tx(9);
+  spi_tx(4);
+  spi_tx(0x3a);
+  spi_tx(0);
+  spi_tx(0x58);
+  spi_tx(4);
+  ss_high();
+  read_response(buffer);
+
+  //wait_a_bit();
+  ss_low();
+  spi_tx(0);
+  spi_tx(9);
+  spi_tx(4);
+  spi_tx(0x68);
+  spi_tx(1);
+  spi_tx(1);
+  spi_tx(0xd1);
+  ss_high();
+  read_response(buffer);
+
   while(1) {
-    usleep(500000);
-    GPIOB->BSRR = (1<<5); // LED on
-    usleep(500000);
-    GPIOB->BRR = (1<<5);  // LED off
-    usart_write_char('0' + ((RTC->TR & (0x3<<20)) >> 20));
-    usart_write_char('0' + ((RTC->TR & (0xf<<16)) >> 16));
-    usart_write_char(':');
-    usart_write_char('0' + ((RTC->TR & (0x7<<12)) >> 12));
-    usart_write_char('0' + ((RTC->TR & (0xf<<8 )) >> 8 ));
-    usart_write_char(':');
-    usart_write_char('0' + ((RTC->TR & (0x7<<4 )) >> 4 ));
-    usart_write_char('0' + ((RTC->TR & (0xf<<0 )) >> 0 ));
-    usart_write_char('\n');
+    //wait_a_bit();
+    ss_low();
+    spi_tx(0);
+    spi_tx(4);
+    spi_tx(2);
+    spi_tx(0x26);
+    spi_tx(0x07);
+    ss_high();
+    unsigned char response = read_response(buffer);
+ 
+    if(response == 0x80 && buffer[0] == 5 && buffer[1] == 0x44 && buffer[2] == 0) {
+      //wait_a_bit();
+      ss_low();
+      spi_tx(0);
+      spi_tx(4);
+      spi_tx(3);
+      spi_tx(0x30);
+      spi_tx(0x0);
+      spi_tx(0x28);
+      ss_high();
+      unsigned char response = read_response(buffer);
+   
+      usart_write_char(buffer[1]);
+      usart_write_char(buffer[2]);
+      usart_write_char(buffer[3]);
+      usart_write_char(buffer[5]);
+      usart_write_char(buffer[6]);
+      usart_write_char(buffer[7]);
+      usart_write_char(buffer[8]);
+      usart_write_char(0xff);
+      if(response == 0x80 && buffer[0] == 0x15) {
+        GPIOB->ODR = 0b100000; // Blink an LED
+        //TIM21->CCER = 1; // CC1E
+
+        usleep(100000);
+        GPIOB->ODR = 0b000000; // Blink an LED
+        TIM21->CCER = 0; // CC1E
+        usleep(100000);
+      }
+    }
   }
 
-  // while(1) {
-  //   while(!(LPUART1->ISR & (1<<5)));
-  //   while(!(USART2->ISR & (1<<7)));
-  //   USART2->TDR = LPUART1->RDR;
-  // }
-
-  // unsigned char buffer[256];
-
-  // // Try to wake the ST95HF
-  // irq_pulse();
-
-  // // Set mode
-  // //wait_a_bit();
-  // ss_low();
-  // spi_tx(0);
-  // spi_tx(2);
-  // spi_tx(2);
-  // spi_tx(2);
-  // spi_tx(0);
-  // ss_high();
-  // read_response(buffer);
-
-  // // Set params
-  // //wait_a_bit();
-  // ss_low();
-  // spi_tx(0);
-  // spi_tx(9);
-  // spi_tx(4);
-  // spi_tx(0x3a);
-  // spi_tx(0);
-  // spi_tx(0x58);
-  // spi_tx(4);
-  // ss_high();
-  // read_response(buffer);
-
-  // //wait_a_bit();
-  // ss_low();
-  // spi_tx(0);
-  // spi_tx(9);
-  // spi_tx(4);
-  // spi_tx(0x68);
-  // spi_tx(1);
-  // spi_tx(1);
-  // spi_tx(0xd1);
-  // ss_high();
-  // read_response(buffer);
-
-  // while(1) {
-  //   //wait_a_bit();
-  //   ss_low();
-  //   spi_tx(0);
-  //   spi_tx(4);
-  //   spi_tx(2);
-  //   spi_tx(0x26);
-  //   spi_tx(0x07);
-  //   ss_high();
-  //   unsigned char response = read_response(buffer);
- 
-  //   if(response == 0x80 && buffer[0] == 5 && buffer[1] == 0x44 && buffer[2] == 0) {
-  //     //wait_a_bit();
-  //     ss_low();
-  //     spi_tx(0);
-  //     spi_tx(4);
-  //     spi_tx(3);
-  //     spi_tx(0x30);
-  //     spi_tx(0x0);
-  //     spi_tx(0x28);
-  //     ss_high();
-  //     unsigned char response = read_response(buffer);
-   
-  //     serial_write_char(buffer[1]);
-  //     serial_write_char(buffer[2]);
-  //     serial_write_char(buffer[3]);
-  //     serial_write_char(buffer[5]);
-  //     serial_write_char(buffer[6]);
-  //     serial_write_char(buffer[7]);
-  //     serial_write_char(buffer[8]);
-  //     serial_write_char(0xff);
-
-  //     if(response == 0x80 && buffer[0] == 0x15) {
-  //       GPIOB->ODR = 0b100000; // Blink an LED
-  //       //TIM21->CCER = 1; // CC1E
-  //       wait_a_bit();
-  //       GPIOB->ODR = 0b000000; // Blink an LED
-  //       //TIM21->CCER = 0; // CC1E
-  //       wait_a_bit();
-  //     }
-  //   }
-  // }
 
 }

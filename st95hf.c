@@ -28,6 +28,7 @@ void wakeup_pulse(){
   gpio_out(GPIOA, 4, 0);
   usleep(20);
   gpio_out(GPIOA, 4, 1);
+  usleep(20);
 }
 
 unsigned char spi_tx(unsigned char tx) {
@@ -35,6 +36,14 @@ unsigned char spi_tx(unsigned char tx) {
   SPI1->DR = tx;
   while(!(SPI1->SR & 1));
   return(SPI1->DR);
+}
+
+void spi_tx_string(char* string, int length) {
+  ss_low();
+  for(int n=0;n<length;n++) {
+    spi_tx(string[n]);
+  }
+  ss_high();
 }
 
 unsigned char read_response(unsigned char* buffer) {
