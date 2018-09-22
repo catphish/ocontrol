@@ -32,12 +32,6 @@ void SystemInit() {
 int main() {
   unsigned char buffer[256];
 
-  // Zero the RTC
-  // RTC->ISR |= (1<<7);
-  // while(!(RTC->ISR & (1<<6)));
-  // RTC->TR = 0;
-  // RTC->ISR &= ~(1<<7);
-
   // Configure all peripherals
   beeper_init();
   led_init();
@@ -78,31 +72,23 @@ int main() {
 
       // Did we receive 15 bytes in response?
       if(response == 0x80 && buffer[0] == 0x15) {
-        // if(buffer[1] == 0) {
-          int ht = (RTC->TR & (0x3<<20)) >> 20;
-          int hu = (RTC->TR & (0xf<<16)) >> 16;
-          int mt = (RTC->TR & (0x7<<12)) >> 12;
-          int mu = (RTC->TR & (0xf<<8 )) >> 8;
-          int st = (RTC->TR & (0x7<<4 )) >> 4;
-          int su = (RTC->TR & (0xf<<0 )) >> 0;
+        int ht = (RTC->TR & (0x3<<20)) >> 20;
+        int hu = (RTC->TR & (0xf<<16)) >> 16;
+        int mt = (RTC->TR & (0x7<<12)) >> 12;
+        int mu = (RTC->TR & (0xf<<8 )) >> 8;
+        int st = (RTC->TR & (0x7<<4 )) >> 4;
+        int su = (RTC->TR & (0xf<<0 )) >> 0;
 
-          spi_tx_string((char[]){0,4,7, 0xa2,4, 1,ht*10+hu,mt*10+mu,st*10+su, 0x28}, 10);
-          read_response(buffer);
+        spi_tx_string((char[]){0,4,7, 0xa2,4, 1,ht*10+hu,mt*10+mu,st*10+su, 0x28}, 10);
+        read_response(buffer);
 
-          led_on();
-          beep_on();
-          usleep(50000); // 50ms on
+        led_on();
+        beep_on();
+        usleep(50000); // 50ms on
 
-          led_off();
-          beep_off();
-          usleep(2000000); // 2s off
-        // } else {        
-        //   led_on();
-        //   usleep(50000); // 50ms on
-
-        //   led_off();
-        //   usleep(100000); // 100ms off
-        // }
+        led_off();
+        beep_off();
+        usleep(2000000); // 2s off
       }
     }
   }
