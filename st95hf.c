@@ -26,9 +26,9 @@ void ss_high() {
 
 void wakeup_pulse(){
   gpio_out(GPIOA, 4, 0);
-  usleep(20);
+  usleep(20000);
   gpio_out(GPIOA, 4, 1);
-  usleep(20);
+  usleep(20000);
 }
 
 unsigned char spi_tx(unsigned char tx) {
@@ -48,7 +48,7 @@ void spi_tx_string(char* string, int length) {
 
 unsigned char read_response(unsigned char* buffer) {
   // Wait for interrupt line
-  while(GPIOA->IDR & (1<<2));
+  while(GPIOB->IDR & (1<<1));
   //  Read data
   ss_low();
   spi_tx(2);

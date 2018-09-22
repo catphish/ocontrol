@@ -48,83 +48,42 @@ int main() {
   gps_on();
 
   wakeup_pulse();
-  usleep(100000);
 
   // Set mode
-  //wait_a_bit();
-  ss_low();
-  spi_tx(0);
-  spi_tx(2);
-  spi_tx(2);
-  spi_tx(2);
-  spi_tx(0);
-  ss_high();
+  spi_tx_string((char[]){0,2,2,2,0}, 5);
   read_response(buffer);
 
   // Set params
-  //wait_a_bit();
-  ss_low();
-  spi_tx(0);
-  spi_tx(9);
-  spi_tx(4);
-  spi_tx(0x3a);
-  spi_tx(0);
-  spi_tx(0x58);
-  spi_tx(4);
-  ss_high();
+  spi_tx_string((char[]){0,9,4,0x3a,0,0x58,4}, 7);
   read_response(buffer);
-
-  //wait_a_bit();
-  ss_low();
-  spi_tx(0);
-  spi_tx(9);
-  spi_tx(4);
-  spi_tx(0x68);
-  spi_tx(1);
-  spi_tx(1);
-  spi_tx(0xd1);
-  ss_high();
+  spi_tx_string((char[]){0,9,4,0x68,0,1,0xd1}, 7);
   read_response(buffer);
 
   while(1) {
-    //wait_a_bit();
-    ss_low();
-    spi_tx(0);
-    spi_tx(4);
-    spi_tx(2);
-    spi_tx(0x26);
-    spi_tx(0x07);
-    ss_high();
+    spi_tx_string((char[]){0,4,2,0x26,7}, 5);
     unsigned char response = read_response(buffer);
  
     if(response == 0x80 && buffer[0] == 5 && buffer[1] == 0x44 && buffer[2] == 0) {
       //wait_a_bit();
-      ss_low();
-      spi_tx(0);
-      spi_tx(4);
-      spi_tx(3);
-      spi_tx(0x30);
-      spi_tx(0x0);
-      spi_tx(0x28);
-      ss_high();
+      spi_tx_string((char[]){0,4,3,0x30,0,0x28}, 6);
       unsigned char response = read_response(buffer);
    
+      usart_write_char(buffer[0]);
       usart_write_char(buffer[1]);
       usart_write_char(buffer[2]);
       usart_write_char(buffer[3]);
+      usart_write_char(buffer[4]);
       usart_write_char(buffer[5]);
       usart_write_char(buffer[6]);
       usart_write_char(buffer[7]);
-      usart_write_char(buffer[8]);
       usart_write_char(0xff);
       if(response == 0x80 && buffer[0] == 0x15) {
-        GPIOB->ODR = 0b100000; // Blink an LED
-        //TIM21->CCER = 1; // CC1E
-
-        usleep(100000);
-        GPIOB->ODR = 0b000000; // Blink an LED
-        TIM21->CCER = 0; // CC1E
-        usleep(100000);
+        led_on();
+        //TIM21->CCER = 1; // Beep on
+        usleep(50000); // 50ms on
+        led_off(); // Blink an LED
+        //TIM21->CCER = 0; // Beep off
+        usleep(100000); // 100ms off
       }
     }
   }
