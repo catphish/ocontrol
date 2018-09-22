@@ -60,30 +60,49 @@ int main() {
   read_response(buffer);
 
   while(1) {
-    spi_tx_string((char[]){0,4,2,0x26,7}, 5);
+    // Wake the tag
+    spi_tx_string((char[]){0,4,2, 0x26,7}, 5);
     unsigned char response = read_response(buffer);
- 
+
+    // Did we get an appropriate response?
+    // resonse     - should be 0x80 for success
+    // buffer[0]   - length should be 5
+    // buffer[1-2] - tag type should be 0x44,0x00
     if(response == 0x80 && buffer[0] == 5 && buffer[1] == 0x44 && buffer[2] == 0) {
-      //wait_a_bit();
-      spi_tx_string((char[]){0,4,3,0x30,0,0x28}, 6);
+      // Read block 0
+      // 0x30 - read
+      // 0x04 - block 4
+      // 0x28 - flags
+      spi_tx_string((char[]){0,4,3, 0x30,4,0x28}, 6);
       unsigned char response = read_response(buffer);
-   
-      usart_write_char(buffer[0]);
-      usart_write_char(buffer[1]);
-      usart_write_char(buffer[2]);
-      usart_write_char(buffer[3]);
-      usart_write_char(buffer[4]);
-      usart_write_char(buffer[5]);
-      usart_write_char(buffer[6]);
-      usart_write_char(buffer[7]);
-      usart_write_char(0xff);
+
+      // Did we receive 15 bytes in response?
       if(response == 0x80 && buffer[0] == 0x15) {
-        led_on();
-        //TIM21->CCER = 1; // Beep on
-        usleep(50000); // 50ms on
-        led_off(); // Blink an LED
-        //TIM21->CCER = 0; // Beep off
-        usleep(100000); // 100ms off
+        // if(buffer[1] == 0) {
+          int ht = (RTC->TR & (0x3<<20)) >> 20;
+          int hu = (RTC->TR & (0xf<<16)) >> 16;
+          int mt = (RTC->TR & (0x7<<12)) >> 12;
+          int mu = (RTC->TR & (0xf<<8 )) >> 8;
+          int st = (RTC->TR & (0x7<<4 )) >> 4;
+          int su = (RTC->TR & (0xf<<0 )) >> 0;
+
+          spi_tx_string((char[]){0,4,7, 0xa2,4, 1,ht*10+hu,mt*10+mu,st*10+su, 0x28}, 10);
+          read_response(buffer);
+
+          led_on();
+          beep_on();
+          usleep(50000); // 50ms on
+
+          led_off();
+          beep_off();
+          usleep(2000000); // 2s off
+        // } else {        
+        //   led_on();
+        //   usleep(50000); // 50ms on
+
+        //   led_off();
+        //   usleep(100000); // 100ms off
+        // }
       }
     }
   }
