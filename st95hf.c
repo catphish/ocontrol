@@ -2,6 +2,8 @@
 #include <stm32l031xx.h>
 #include "util.h"
 
+#include "usart.h"
+
 void st95hf_init() {
   gpio_out(GPIOA, 4, 1); // NFC wakeup idles high
   gpio_out(GPIOB, 0, 1); // SPI SS should idle high
@@ -60,3 +62,34 @@ unsigned char read_response(unsigned char* buffer) {
 
   return response;
 }
+
+int calibration;
+void calibrate() {
+  unsigned char buffer[16];
+  for(int calibration=0x0;calibration<0xfc;calibration++) {
+    spi_tx_string((char[]){0,7,14, 11, 0xa2,0, 0xf8,1, 0x18,0, 0x10, 0x60,0x60, 0,calibration, 0x3f, 1}, 17);
+    read_response(buffer);
+    if (buffer[1] == 1) {
+      led_on();
+      usleep(50000);
+      led_off();
+      usleep(100000);
+      led_on();
+      usleep(50000);
+      led_off();
+      usleep(100000);
+      led_on();
+      usleep(50000);
+      led_off();
+      usleep(100000);
+      return;
+    }
+  }
+}
+
+void detect_tag() {
+  unsigned char buffer[16];
+  spi_tx_string((char[]){0,7,14, 10, 0x21,0, 0x79,1, 0x18,0, 0x10, 0x60,0x60, calibration-2,calibration+2, 0x3f, 0}, 17);
+  read_response(buffer);
+}
+

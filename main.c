@@ -53,7 +53,17 @@ int main() {
   spi_tx_string((char[]){0,9,4,0x68,0,1,0xd1}, 7);
   read_response(buffer);
 
+  calibrate();
+
   while(1) {
+    detect_tag();
+    usleep(1000);
+
+    // Set mode
+    spi_tx_string((char[]){0,2,2,2,0}, 5);
+    read_response(buffer);
+    usleep(1000);
+
     // Wake the tag
     spi_tx_string((char[]){0,4,2, 0x26,7}, 5);
     unsigned char response = read_response(buffer);
@@ -79,15 +89,15 @@ int main() {
         int st = (RTC->TR & (0x7<<4 )) >> 4;
         int su = (RTC->TR & (0xf<<0 )) >> 0;
 
-        spi_tx_string((char[]){0,4,7, 0xa2,4, 1,ht*10+hu,mt*10+mu,st*10+su, 0x28}, 10);
-        read_response(buffer);
+        //spi_tx_string((char[]){0,4,7, 0xa2,4, 1,ht*10+hu,mt*10+mu,st*10+su, 0x28}, 10);
+        //read_response(buffer);
 
         led_on();
-        beep_on();
+        //beep_on();
         usleep(50000); // 50ms on
 
         led_off();
-        beep_off();
+        //beep_off();
         usleep(2000000); // 2s off
       }
     }
