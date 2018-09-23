@@ -43,65 +43,69 @@ int main() {
 
   wakeup_pulse();
 
-  // Set mode
-  spi_tx_string((char[]){0,2,2,2,0}, 5);
-  read_response(buffer);
+  calibrate();
 
   // Set params
-  spi_tx_string((char[]){0,9,4,0x3a,0,0x58,4}, 7);
-  read_response(buffer);
-  spi_tx_string((char[]){0,9,4,0x68,0,1,0xd1}, 7);
-  read_response(buffer);
-
-  calibrate();
+  // spi_tx_string((char[]){0,9,4,0x3a,0,0x58,4}, 7);
+  // read_response(buffer);
+  // spi_tx_string((char[]){0,9,4,0x68,0,1,0xd3}, 7);
+  // read_response(buffer);
 
   while(1) {
     detect_tag();
-    usleep(1000);
 
     // Set mode
     spi_tx_string((char[]){0,2,2,2,0}, 5);
     read_response(buffer);
+
     usleep(1000);
 
     // Wake the tag
     spi_tx_string((char[]){0,4,2, 0x26,7}, 5);
     unsigned char response = read_response(buffer);
 
-    // Did we get an appropriate response?
-    // resonse     - should be 0x80 for success
-    // buffer[0]   - length should be 5
-    // buffer[1-2] - tag type should be 0x44,0x00
+    // Check the tag type
     if(response == 0x80 && buffer[0] == 5 && buffer[1] == 0x44 && buffer[2] == 0) {
-      // Read block 0
-      // 0x30 - read
-      // 0x04 - block 4
-      // 0x28 - flags
+
+      int ht = (RTC->TR & (0x3<<20)) >> 20;
+      int hu = (RTC->TR & (0xf<<16)) >> 16;
+      int h = ht*10+hu;
+      int mt = (RTC->TR & (0x7<<12)) >> 12;
+      int mu = (RTC->TR & (0xf<<8 )) >> 8;
+      int m = mt*10+mu;
+      int st = (RTC->TR & (0x7<<4 )) >> 4;
+      int su = (RTC->TR & (0xf<<0 )) >> 0;
+      int s = st*10+su;
+      
+      int control = 1;
+
+      // Read block 0, the tag documentation says to do so
+      spi_tx_string((char[]){0,4,3, 0x30,0,0x28}, 6);
+      response = read_response(buffer);
+
+      // Write to block 4
+      spi_tx_string((char[]){0,4,7, 0xa2,4, control,h,m,s, 0x28}, 10);
+      response = read_response(buffer);
+      usleep(10000); // Wait for the write to finish
+
+      // Read block 4 to verify the write
       spi_tx_string((char[]){0,4,3, 0x30,4,0x28}, 6);
-      unsigned char response = read_response(buffer);
+      response = read_response(buffer);
+ 
+      // Power off field
+      spi_tx_string((char[]){0,2,2,0,0}, 5);
+      read_response(buffer);
 
-      // Did we receive 15 bytes in response?
-      if(response == 0x80 && buffer[0] == 0x15) {
-        int ht = (RTC->TR & (0x3<<20)) >> 20;
-        int hu = (RTC->TR & (0xf<<16)) >> 16;
-        int mt = (RTC->TR & (0x7<<12)) >> 12;
-        int mu = (RTC->TR & (0xf<<8 )) >> 8;
-        int st = (RTC->TR & (0x7<<4 )) >> 4;
-        int su = (RTC->TR & (0xf<<0 )) >> 0;
-
-        //spi_tx_string((char[]){0,4,7, 0xa2,4, 1,ht*10+hu,mt*10+mu,st*10+su, 0x28}, 10);
-        //read_response(buffer);
-
+      if(buffer[1] == control && buffer[2] == h && buffer[3] == m && buffer[4] == s) {
         led_on();
         //beep_on();
         usleep(50000); // 50ms on
 
         led_off();
         //beep_off();
-        usleep(2000000); // 2s off
+        usleep(1000000); // 2s off
       }
     }
   }
-
 
 }

@@ -66,7 +66,7 @@ unsigned char read_response(unsigned char* buffer) {
 int calibration;
 void calibrate() {
   unsigned char buffer[16];
-  for(int calibration=0x0;calibration<0xfc;calibration++) {
+  for(int calibration=0x50;calibration<0xfc;calibration++) {
     spi_tx_string((char[]){0,7,14, 11, 0xa2,0, 0xf8,1, 0x18,0, 0x10, 0x60,0x60, 0,calibration, 0x3f, 1}, 17);
     read_response(buffer);
     if (buffer[1] == 1) {
@@ -92,4 +92,3 @@ void detect_tag() {
   spi_tx_string((char[]){0,7,14, 10, 0x21,0, 0x79,1, 0x18,0, 0x10, 0x60,0x60, calibration-2,calibration+2, 0x3f, 0}, 17);
   read_response(buffer);
 }
-
