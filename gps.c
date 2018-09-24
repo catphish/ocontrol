@@ -29,8 +29,8 @@ void gps_off() {
 }
 
 void LPUART1_IRQHandler() {
+  LPUART1->ICR = 1 << 3;
   char rxchar = LPUART1->RDR;
-  //usart_write_char(rxchar);
   if(rxchar == '$') {
     buffer_valid = 1;
     buffer_ptr = 0;
@@ -38,6 +38,7 @@ void LPUART1_IRQHandler() {
   } else if((rxchar == '\n') && buffer_valid) {
     // We have a line
     if(!strncmp(buffer, "GPRMC,", 6)) {
+      usart_write_char(0x2);
       // this is the line we want
       if(buffer[17] == 'A') {
         // Data is valid
