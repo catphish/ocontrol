@@ -59,7 +59,7 @@ int main() {
 
   // Low power main loop
   while(1) {
-    asm("wfi");
+    asm volatile("wfi");
   }
 
 }
