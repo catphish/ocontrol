@@ -1,3 +1,3 @@
 void beeper_init();
-void beep_on();
-void beep_off();
+void beeper_on();
+void beeper_off();

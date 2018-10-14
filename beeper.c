@@ -11,10 +11,10 @@ void beeper_init() {
   TIM21->ARR = 500;
 }
 
-void beep_on() {
+void beeper_on() {
   TIM21->CCER = 1;
 }
 
-void beep_off() {
+void beeper_off() {
   TIM21->CCER = 0;
 }

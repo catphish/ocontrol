@@ -4,7 +4,6 @@
 #include "gpio.h"
 #include "usart.h"
 #include "st95hf.h"
-#include "gps.h"
 #include "beeper.h"
 
 void SystemInitError(uint8_t error_source) {
@@ -23,6 +22,7 @@ void SystemInit() {
   RCC->APB2ENR |= (1<<12); // Enable SPI1
   RCC->APB2ENR |= (1<<2);  // Enable TIM21
   RCC->APB2ENR |= (1<<0);  // Enable SYSCFG
+  RCC->CSR     |= (1<<10); // LSE BYPASS
   RCC->CSR     |= (1<<8);  // LSE ON
   RCC->CSR     |= (1<<18); // RTC ON
   RCC->CSR     |= (1<<16); // RTC using LSE
@@ -34,16 +34,8 @@ int main() {
   // Configure all peripherals
   beeper_init();
   led_init();
-  gps_init();
   st95hf_init();
   usart_init();
-
-  // Blink LED to indicate succssful boot
-  led_on();
-  usleep(50000);
-  led_off();
-
-  gps_on();
 
   // Wakeup
   wakeup_pulse();
@@ -59,7 +51,5 @@ int main() {
 
   // Low power main loop
   while(1) {
-    asm volatile("wfi");
   }
-
 }
