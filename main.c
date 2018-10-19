@@ -51,5 +51,7 @@ int main() {
 
   // Low power main loop
   while(1) {
+    SCB->SCR |= SCB_SCR_SLEEPDEEP_Msk; /* Enable deepsleep */
+    __asm ("wfi");
   }
 }

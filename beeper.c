@@ -11,6 +11,11 @@ void beeper_init() {
   TIM21->ARR = 500;
 }
 
+void beeper_set_time(int time) {
+  TIM21->CCR1 = time;
+  TIM21->ARR = time * 2;
+}
+
 void beeper_on() {
   TIM21->CCER = 1;
 }

@@ -2,6 +2,7 @@
 #include <stm32l031xx.h>
 #include "util.h"
 #include "usart.h"
+#include "beeper.h"
 
 void st95hf_init() {
   gpio_out(GPIOA, 4, 1); // NFC wakeup idles high
@@ -69,8 +70,8 @@ unsigned char read_response(unsigned char* buffer) {
 
 int calibration;
 void calibrate() {
-  unsigned char buffer[16];
-  for(calibration=0x40;calibration<0xfc;calibration++) {
+  unsigned char buffer[32];
+  for(calibration=0x10;calibration<0xfc;calibration++) {
     spi_tx_string((char[]){0,7,14, 11, 0xa2,0, 0xf8,1, 0x18,0, 0x10, 0x60,0x60, 0,calibration, 0x3f, 1}, 17);
     read_response(buffer);
     if (buffer[1] == 1) {
@@ -95,7 +96,7 @@ void detect_tag() {
   // Enable interrupt
   EXTI->IMR |= 2;
   // Enter tag detect sleep
-  spi_tx_string((char[]){0,7,14, 10, 0x21,0, 0x79,1, 0x18,0, 0x10, 0x60,0x60, calibration-0,calibration+0, 0x3f, 0}, 17);
+  spi_tx_string((char[]){0,7,14, 10, 0x21,0, 0x79,1, 0x18,0, 0x10, 0x60,0x60, calibration-8,calibration+8, 0x3f, 0}, 17);
 }
 
 void usart_write_buffer(unsigned char * buffer) {
@@ -106,7 +107,7 @@ void usart_write_buffer(unsigned char * buffer) {
 }
 
 int anticollision(int level) {
-  unsigned char buffer[16];
+  unsigned char buffer[32];
   unsigned char response;
   unsigned char command_id;
   if(level == 1)      command_id = 0x93;
@@ -135,8 +136,63 @@ int anticollision(int level) {
   } else return -1;
 }
 
+void fail() {
+  // Acknowledge
+  beeper_on();
+  usleep(100000);
+  beeper_off();
+  usleep(100000);
+  beeper_set_time(260);
+  beeper_on();
+  usleep(100000);
+  beeper_off();
+  beeper_set_time(250);
+}
+
+void write_timestamp() {
+  unsigned char buffer[32];
+  unsigned char response;
+
+  // Tag is a regular tag. Write the time and control number.
+  int ht = (RTC->TR & (0x3<<20)) >> 20;
+  int hu = (RTC->TR & (0xf<<16)) >> 16;
+  int h = ht*10+hu;
+  int mt = (RTC->TR & (0x7<<12)) >> 12;
+  int mu = (RTC->TR & (0xf<<8 )) >> 8;
+  int m = mt*10+mu;
+  int st = (RTC->TR & (0x7<<4 )) >> 4;
+  int su = (RTC->TR & (0xf<<0 )) >> 0;
+  int s = st*10+su;
+  
+  int id = 1;
+
+  // Write to block 4
+  spi_tx_string((char[]){0,4,7, 0xa2,4, id,h,m,s, 0x28}, 10);
+  response = read_response(buffer);
+
+  if(response == 0x90 && buffer[1] == 0xa) {
+    // Read block 4 to verify the write
+    spi_tx_string((char[]){0,4,3, 0x30,4,0x28}, 6);
+    response = read_response(buffer);
+
+    if(buffer[1] == id && buffer[2] == h && buffer[3] == m && buffer[4] == s) {
+      // Power off field
+      spi_tx_string((char[]){0,2,2,0,0}, 5);
+      read_response(buffer);
+
+      led_on();
+      beeper_on();
+      usleep(100000); // 100ms on
+
+      led_off();
+      beeper_off();
+      usleep(1000000); // 2s off
+    } else fail();
+  } else fail();
+}
+
 void EXTI0_1_IRQHandler() {
-  unsigned char buffer[16];
+  unsigned char buffer[32];
   unsigned char response;
 
   // Disable interrupt
@@ -161,54 +217,71 @@ void EXTI0_1_IRQHandler() {
   if(response == 0x80) {
     // Received ATQA, proceed with anticollision
     response = anticollision(1);
-    usart_write_char(response);
     if (response == 1) {
       // We're talking to a dumb tag
+      write_timestamp();
     } else if (response == 2) {
       // We're talking to a smart device
-    }
-  }
+      // Send RATS
+      spi_tx_string((char[]){0,4,3, 0xe0, 0x20, 0x28}, 6);
+      response = read_response(buffer);
+      usart_write_char(response);
+      usart_write_buffer(buffer);
+
+      // Send SELECT
+      spi_tx_string((char[]){0,4,13, 2, 0,0xa4,4,0, 5, 0xF0,0x2A,0x00,0x67,0xA0, 0, 0x28}, 16);
+      response = read_response(buffer);
+      usart_write_char(response);
+      usart_write_buffer(buffer);
+
+      if(response == 0x80) {
+        // Set the clock
+        RTC->ISR |= (1<<7);
+        while(!(RTC->ISR & (1<<6)));
+        int yt = buffer[10] / 10;
+        int yu = buffer[10] % 10;
+        int mt = buffer[11] / 10;
+        int mu = buffer[11] % 10;
+        int dt = buffer[12] / 10;
+        int du = buffer[12] % 10;
+
+        int wd = buffer[13] / 10;
+
+        int hht = buffer[14] / 10;
+        int hhu = buffer[14] % 10;
+        int mmt = buffer[15] / 10;
+        int mmu = buffer[15] % 10;
+        int sst = buffer[16] / 10;
+        int ssu = buffer[16] % 10;
+
+        RTC->TR = (hht << 20) | (hhu << 16) | (mmt << 12) | (mmu << 8) | (sst << 4) | (ssu << 0);
+        RTC->DR = (yt << 20) | (yu << 16) | (wd << 13) | (mt << 12) | (mu << 8) | (dt << 4) | (du << 0);
+        RTC->ISR &= ~(1<<7);
+
+        // Power off field
+        spi_tx_string((char[]){0,2,2,0,0}, 5);
+        read_response(buffer);
+
+        // Acknowledge
+        beeper_on();
+        usleep(50000);
+        beeper_set_time(240);
+        usleep(50000);
+        beeper_set_time(250);
+        usleep(50000);
+        beeper_set_time(240);
+        usleep(50000);
+        beeper_set_time(250);
+        usleep(50000);
+        beeper_off();
+      } else fail();
+
+    } else fail();
+  } else fail();
   // Power off field
   spi_tx_string((char[]){0,2,2,0,0}, 5);
   read_response(buffer);
 
-  // Check the tag type
-  //if(response == 0x80 && buffer[0] == 5 && buffer[1] == 0x44 && buffer[2] == 0) {
-    // // Tag is a regular tag. Write the time and control number.
-    // int ht = (RTC->TR & (0x3<<20)) >> 20;
-    // int hu = (RTC->TR & (0xf<<16)) >> 16;
-    // int h = ht*10+hu;
-    // int mt = (RTC->TR & (0x7<<12)) >> 12;
-    // int mu = (RTC->TR & (0xf<<8 )) >> 8;
-    // int m = mt*10+mu;
-    // int st = (RTC->TR & (0x7<<4 )) >> 4;
-    // int su = (RTC->TR & (0xf<<0 )) >> 0;
-    // int s = st*10+su;
-    
-    // int id = 1;
-
-    // // Read block 0, the tag documentation says to do so
-    // spi_tx_string((char[]){0,4,3, 0x30,0,0x28}, 6);
-    // response = read_response(buffer);
-
-    // // Write to block 4
-    // spi_tx_string((char[]){0,4,7, 0xa2,4, id,h,m,s, 0x28}, 10);
-    // response = read_response(buffer);
-    // usleep(10000); // Wait for the write to finish
-
-    // // Read block 4 to verify the write
-    // spi_tx_string((char[]){0,4,3, 0x30,4,0x28}, 6);
-    // response = read_response(buffer);
-
-    // if(buffer[1] == id && buffer[2] == h && buffer[3] == m && buffer[4] == s) {
-    //   led_on();
-    //   //beep_on();
-    //   usleep(50000); // 50ms on
-
-    //   led_off();
-    //   //beep_off();
-    //   usleep(1000000); // 2s off
-    // }
-  //}
+  // Go back to low power card detection mode
   detect_tag();
 }
